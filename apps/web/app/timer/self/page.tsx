@@ -5,6 +5,8 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Volume2, Pause, Play, RefreshCcw, Coffee, Brain, Music, Moon } from 'lucide-react';
+import { useSession, SessionProvider } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 
 const timerPresets = [
   { name: 'Focus', duration: 25, icon: Brain },
@@ -12,7 +14,17 @@ const timerPresets = [
   { name: 'Long Break', duration: 15, icon: Coffee },
 ];
 
-export default function IndividualHome() {
+export default function IndividualHomeWrapper() {
+  return (
+    <SessionProvider>
+      <IndividualHome />
+    </SessionProvider>
+  );
+}
+
+function IndividualHome() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const [time, setTime] = useState(25 * 60);
   const [isRunning, setIsRunning] = useState(false);
   const [volume, setVolume] = useState(50);
@@ -22,6 +34,36 @@ export default function IndividualHome() {
     sessionsCompleted: 5,
     currentStreak: 3,
   });
+  
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/auth/signin');
+    }
+  }, [status, router]);
+  
+  // Fetch user data when session is available
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (session?.user) {
+        try {
+          const response = await fetch('/api/user/stats');
+          if (response.ok) {
+            const userData = await response.json();
+            setSessionStats({
+              totalFocusTime: userData.totalFocusTime || '0h 0m',
+              sessionsCompleted: userData.sessionsCompleted || 0,
+              currentStreak: userData.currentStreak || 0,
+            });
+          }
+        } catch (error) {
+          console.error('Failed to fetch user data:', error);
+        }
+      }
+    };
+    
+    fetchUserData();
+  }, [session]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
