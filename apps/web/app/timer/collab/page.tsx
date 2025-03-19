@@ -15,10 +15,23 @@ import {
   Book,
   Music,
   Moon,
+  LogOut,
 } from "lucide-react";
 import { useSocket } from "@/hooks/useSocket";
 import { motion, AnimatePresence } from "framer-motion";
 import useSound from "use-sound";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { useRouter } from 'next/navigation';
 
 const timerPresets = [
   { name: "Focus", duration: 25, icon: Brain },
@@ -51,6 +64,7 @@ const TimerPage = () => {
   const [play] = useSound('/sounds/pop.mp3',{
     volume: 0.25,
   });
+  const router = useRouter();
 
   // Remove the timer logic and update handler
   useEffect(() => {
@@ -138,19 +152,71 @@ const TimerPage = () => {
     }
   };
 
+  const handleLeaveRoom = () => {
+    if (socket && socket instanceof WebSocket) {
+      socket.send(JSON.stringify({
+        type: "leaveRoom",
+        roomId: "default_room"
+      }));
+      socket.close();
+      router.push('/dashboard');
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-[#0A0A0A] bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.3),rgba(255,255,255,0))]">
       <div className="w-full max-w-6xl flex gap-6 flex-col md:flex-row">
         {/* Left Side - Timer */}
         <Card className="flex-1 bg-zinc-900/40 shadow-xl backdrop-blur-2xl border border-zinc-800/50 rounded-xl">
           <div className="p-8 space-y-8">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-medium text-zinc-100">
+                Focus Timer
+              </h2>
+              <div className="flex items-center gap-3">
+                <Moon className="w-5 h-5 text-zinc-400" />
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50"
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Leave
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent className="bg-zinc-900/95 shadow-xl backdrop-blur-2xl border border-zinc-800/50">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle className="text-zinc-100">
+                        Leave Focus Room
+                      </AlertDialogTitle>
+                      <AlertDialogDescription className="text-zinc-400">
+                        Are you sure you want to leave? Your session progress will not be saved.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel className="bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800">
+                        Stay
+                      </AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleLeaveRoom}
+                        className="bg-violet-600 hover:bg-violet-700 text-white"
+                      >
+                        Leave Room
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            </div>
             <div className="space-y-6">
-              <div className="flex items-center justify-between">
+              {/* <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-medium text-zinc-100">
                   Focus Timer
                 </h2>
                 <Moon className="w-5 h-5 text-zinc-400" />
-              </div>
+              </div> */}
 
               {/* Timer Presets */}
               <div className="flex justify-center gap-3">

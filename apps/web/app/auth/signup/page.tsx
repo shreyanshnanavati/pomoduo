@@ -68,18 +68,15 @@ export default function Signup() {
     
       const data = await response.json();
       
-      // if (data.token) {
-      //   // Store the token in localStorage
-      //   localStorage.setItem('token', data.token);
-        
-      //   // You might also want to store user info
-      //   localStorage.setItem('user', JSON.stringify(data.user));
-        
-      //   // Redirect user to dashboard or home page using Next.js router
-      //   router.push('/timer');
-      // }
+      if (response.ok) {
+        // Redirect to dashboard after successful signup
+        router.push('/dashboard'); // or wherever you want to redirect
+      } else {
+        // Handle error case
+        setErrors({ ...errors, email: data.message || 'Signup failed' });
+      }
       
-      // Reset form after successful submission
+      // Reset form after submission
       setIsSubmitting(false);
       setName("");
       setEmail("");
