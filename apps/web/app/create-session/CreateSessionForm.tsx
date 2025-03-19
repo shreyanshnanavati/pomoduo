@@ -46,24 +46,28 @@ export default function CreateSessionForm({ user }: CreateSessionFormProps) {
         // For individual sessions, redirect to the timer page with preset
         router.push(`/timer?preset=${selectedPreset}&duration=${duration}`);
       } else {
-        // For room sessions, create a room and then redirect
-        // This would typically involve an API call to create the room
-        console.log('Creating room session:', { roomName, selectedPreset, duration, userId: user.id });
-        
-        // Example API call (uncomment and implement when ready)
-        const response = await fetch('/api/rooms', {
+        // For room sessions, create a room first
+        const response = await fetch('/api/room', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
-            slug: roomName, 
+            slug: roomName.toLowerCase().replace(/\s+/g, '-'), // Convert room name to URL-friendly slug
             adminId: user.id 
           }),
         });
+
+        if (!response.ok) {
+          throw new Error('Failed to create room');
+        }
+
         const data = await response.json();
-        router.push(`/timer/collab?slug=${data.slug}`);
+        
+        // Redirect to the collaborative timer page with the room slug as a query parameter
+        router.push(`/timer/collab?room=${data.slug}`);
       }
     } catch (error) {
       console.error('Error creating session:', error);
+      // You might want to show an error message to the user here
     } finally {
       setIsLoading(false);
     }

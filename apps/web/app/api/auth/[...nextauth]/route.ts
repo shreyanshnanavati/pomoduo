@@ -58,6 +58,19 @@ const handler = NextAuth({
         },
       };
     },
+    async redirect({ url, baseUrl }) {
+      if (url.startsWith("/")) return `${baseUrl}${url}`
+      else if (new URL(url).origin === baseUrl) return url
+      return baseUrl
+    },
+  },
+  pages: {
+    signIn: '/auth/signin',
+    signOut: '/auth/signin',
+  },
+  session: {
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60,
   },
 });
 
