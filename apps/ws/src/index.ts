@@ -1,4 +1,10 @@
 import WebSocket from "ws";
+import { parse } from 'url'
+import { verify } from 'jsonwebtoken';
+import dotenv from 'dotenv';
+
+// Load environment variables from .env file
+dotenv.config();
 
 // Start a websocket server
 const wsServer = new WebSocket.Server({ port: 8092 });
@@ -13,7 +19,7 @@ interface Room {
 }
 
 // Store clients and rooms
-const clients: { socket: WebSocket; userId: string; roomId: string; isAdmin: boolean }[] = [];
+const clients: { socket: WebSocket; userId: string; roomId: string; isAdmin: boolean, name: string, status: string, image: string }[] = [];
 const rooms: Map<string, Room> = new Map();
 
 // Initialize default room
@@ -103,15 +109,104 @@ function setTimerPreset(roomId: string, preset: 'Focus' | 'Short Break' | 'Long 
   broadcastTimerUpdate(roomId);
 }
 
-// Handle WebSocket connections
-wsServer.on("connection", (ws) => {
-  console.log("Client connected");
-  clients.push({ socket: ws, userId: "", roomId: "", isAdmin: false });
+// Add this interface for token payload
+interface TokenPayload {
+  userId: string;
+  name?: string;
+  email?: string;
+  // Add other fields that are in your NextAuth JWT
+}
 
-  ws.on("message", (message) => {
+// Add this new broadcast function after the other broadcast function
+function broadcastMemberUpdate(roomId: string) {
+  const roomMembers = clients
+    .filter((client) => client.roomId === roomId)
+    .map(client => ({
+      id: client.userId,
+      name: client.name,
+      image: client.image,
+      status: client.status
+    }));
+
+  clients.forEach((client) => {
+    if (client.roomId === roomId) {
+      client.socket.send(JSON.stringify({
+        type: "memberUpdate",
+        members: roomMembers
+      }));
+    }
+  });
+}
+
+// Handle WebSocket connections - now using token from query parameter
+wsServer.on("connection", (ws: WebSocket, request) => {
+  console.log("New client connected, authenticating from URL");
+  
+  // Get token from query parameter
+  const { query } = parse(request.url || '', true);
+  const token = query.token as string;
+  
+  if (!token) {
+    console.error("No token provided");
+    ws.close(1008, "Authentication required");
+    return;
+  }
+  
+  try {
+    // Verify the token using the same secret used by NextAuth
+    const JWT_SECRET = process.env.NEXTAUTH_SECRET;
+    
+    if (!JWT_SECRET) {
+      console.error("Missing NEXTAUTH_SECRET environment variable");
+      ws.close(1011, "Server configuration error");
+      return;
+    }
+    
+    // Verify and decode the token
+    const decoded = verify(token, JWT_SECRET) as TokenPayload;
+    
+    // Authentication successful - add client to the clients array
+    const client = {
+      socket: ws,
+      userId: decoded.userId || decoded.name || "anonymous", // Ensure userId is always a string
+      roomId: "",
+      isAdmin: false, 
+      name: decoded.name || "Anonymous",
+      status: "Focusing",
+      image: `https://i.pravatar.cc/150?u=${decoded.userId || decoded.name || "anonymous"}`
+    };
+    
+    clients.push(client);
+    
+    console.log(`Client authenticated: ${client.name} (${client.userId})`);
+    
+    // Send success message to client
+    ws.send(JSON.stringify({ 
+      type: "authenticated", 
+      success: true,
+      user: {
+        name: client.name,
+        userId: client.userId
+      }
+    }));
+  } catch (error) {
+    console.error("Authentication error:", error);
+    ws.close(1008, "Authentication failed");
+    return;
+  }
+
+  ws.on("message", (message: any) => {
     const data = JSON.parse(message.toString());
     console.log(data);
 
+    // Find client by websocket connection
+    const client = clients.find(c => c.socket === ws);
+    if (!client) {
+      ws.close(1008, "Client not found");
+      return;
+    }
+
+    // Handle message types
     switch (data.type) {
       case "join":
         const clientToJoin = clients.find((client) => client.socket === ws);
@@ -128,15 +223,26 @@ wsServer.on("connection", (ws) => {
             });
           }
           
-          // Send current room state to the joining client
           const room = rooms.get(data.roomId);
+          // Send current state to the joining client
           ws.send(JSON.stringify({
             type: "joinedRoom",
             roomId: data.roomId,
             timer: room?.timer,
             isRunning: room?.isRunning,
-            preset: room?.preset
+            preset: room?.preset,
+            members: clients
+              .filter((client) => client.roomId === data.roomId)
+              .map(client => ({
+                id: client.userId,
+                name: client.name,
+                image: client.image,
+                status: client.status
+              }))
           }));
+
+          // Broadcast member update to all clients in the room
+          broadcastMemberUpdate(data.roomId);
         }
         break;
         
@@ -193,7 +299,11 @@ wsServer.on("connection", (ws) => {
   ws.on("close", () => {
     const index = clients.findIndex((client) => client.socket === ws);
     if (index !== -1) {
+      const roomId = clients[index]!.roomId;
       clients.splice(index, 1);
+      if (roomId) {
+        broadcastMemberUpdate(roomId);
+      }
     }
     console.log("Client disconnected");
   });
