@@ -34,11 +34,31 @@ const handler = NextAuth({
         if (!passwordsMatch) {
           throw new Error("Invalid credentials");
         }
-
+        console.log("authorize callback called",user);
         return user;
       },
     }),
   ],
+    callbacks: {
+    jwt({ token, user }) {
+      console.log("jwt callback called",token,user);
+      if (user) {
+        return { ...token, id: user.id }; // Save id to token as docs says: https://next-auth.js.org/configuration/callbacks
+      }
+      return token;
+    },
+    session: ({ session, token, user }) => {
+      console.log("session callback called",session,token,user);
+      return {
+        ...session,
+        user: {
+          ...session.user,
+          // id: user.id, // This is copied from official docs which find user is undefined
+          id: token.id, // Get id from token instead
+        },
+      };
+    },
+  },
 });
 
 export { handler as GET, handler as POST };
