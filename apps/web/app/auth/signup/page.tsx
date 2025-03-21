@@ -1,7 +1,8 @@
 "use client"
 import { Mail, Lock, User } from 'lucide-react';
 import { useState, FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import { redirect, useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 
 interface FormErrors {
   name?: string;
@@ -11,11 +12,16 @@ interface FormErrors {
 
 export default function Signup() {
   const router = useRouter();
+  const { data: session, status, update } = useSession()
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  if(session) {
+    redirect('/dashboard');
+  }
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};

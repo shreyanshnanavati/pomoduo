@@ -5,6 +5,7 @@ import { Clock, Users, Calendar, BarChart3, ArrowUpRight, Timer, Coffee, Brain, 
 import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import LogoutButton from '@/components/LogoutButton';
 
 const stats = [
   { name: 'Focus Time', value: '12h 30m', icon: Clock, change: '+22%' },
@@ -47,12 +48,7 @@ export default async function Dashboard() {
                 Start Session
               </Button>
             </Link>
-            <form action="/auth/signout" method="post">
-              <Button className="bg-zinc-100 hover:bg-zinc-200 text-zinc-900">
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </Button>
-            </form>
+            <LogoutButton />
           </div>
         </div>
 

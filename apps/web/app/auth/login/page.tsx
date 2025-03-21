@@ -1,9 +1,9 @@
 "use client"
 import { Mail, Lock, User } from 'lucide-react';
 import { useState, FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import { redirect, useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
-
+import {useSession} from 'next-auth/react'
 interface FormErrors {
   name?: string;
   email?: string;
@@ -11,6 +11,13 @@ interface FormErrors {
 }
 
 export default function Signup() {
+  const { data: session, status, update } = useSession()
+
+
+  if(session) {
+    redirect('/dashboard');
+  }
+
   const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -50,10 +57,14 @@ export default function Signup() {
     if (validateForm()) {
       setIsSubmitting(true);
 
+      const searchParams = new URLSearchParams(window.location.search);
+      const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
+
       signIn('credentials', {
         email,
         password,
-        redirect: false,
+        redirect: true,
+        callbackUrl
       });
       
       // // Here you would typically make an API call to register the user
