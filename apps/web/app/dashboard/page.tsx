@@ -1,9 +1,12 @@
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Clock, Users, Calendar, BarChart3, ArrowUpRight, Timer, Coffee, Brain } from 'lucide-react';
+import { Clock, Users, Calendar, BarChart3, ArrowUpRight, Timer, Coffee, Brain, LogOut } from 'lucide-react';
 import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
+import LogoutButton from '@/components/LogoutButton';
+
 const stats = [
   { name: 'Focus Time', value: '12h 30m', icon: Clock, change: '+22%' },
   { name: 'Sessions', value: '24', icon: Timer, change: '+12%' },
@@ -39,9 +42,14 @@ export default async function Dashboard() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold text-zinc-100">Dashboard</h1>
-          <Button className="bg-violet-600 hover:bg-violet-700 text-white">
-            Start Session
-          </Button>
+          <div className="flex gap-4">
+            <Link href="/create-session">
+              <Button className="bg-violet-600 hover:bg-violet-700 text-white">
+                Start Session
+              </Button>
+            </Link>
+            <LogoutButton />
+          </div>
         </div>
 
         {/* Stats Grid */}

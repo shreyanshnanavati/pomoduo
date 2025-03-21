@@ -212,6 +212,7 @@ wsServer.on("connection", (ws: WebSocket, request) => {
         const clientToJoin = clients.find((client) => client.socket === ws);
         if (clientToJoin) {
           clientToJoin.roomId = data.roomId;
+          clientToJoin.isAdmin = data.isAdmin || false; // Set admin status
           
           // Create room if it doesn't exist
           if (!rooms.has(data.roomId)) {
@@ -231,13 +232,15 @@ wsServer.on("connection", (ws: WebSocket, request) => {
             timer: room?.timer,
             isRunning: room?.isRunning,
             preset: room?.preset,
+            isAdmin: clientToJoin.isAdmin,
             members: clients
               .filter((client) => client.roomId === data.roomId)
               .map(client => ({
                 id: client.userId,
                 name: client.name,
                 image: client.image,
-                status: client.status
+                status: client.status,
+                isAdmin: client.isAdmin
               }))
           }));
 

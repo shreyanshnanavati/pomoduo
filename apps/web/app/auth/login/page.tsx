@@ -1,9 +1,9 @@
 "use client"
 import { Mail, Lock, User } from 'lucide-react';
 import { useState, FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import { redirect, useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
-
+import {useSession} from 'next-auth/react'
 interface FormErrors {
   name?: string;
   email?: string;
@@ -11,6 +11,13 @@ interface FormErrors {
 }
 
 export default function Signup() {
+  const { data: session, status, update } = useSession()
+
+
+  if(session) {
+    redirect('/dashboard');
+  }
+
   const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -50,10 +57,14 @@ export default function Signup() {
     if (validateForm()) {
       setIsSubmitting(true);
 
+      const searchParams = new URLSearchParams(window.location.search);
+      const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
+
       signIn('credentials', {
         email,
         password,
-        redirect: false,
+        redirect: true,
+        callbackUrl
       });
       
       // // Here you would typically make an API call to register the user
@@ -93,8 +104,8 @@ export default function Signup() {
       <div className="container mx-auto px-4 h-screen flex items-center justify-center">
         <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">Create Account</h1>
-            <p className="text-gray-500 mt-2">Login to get started</p>
+            <h1 className="text-3xl font-bold text-gray-900">Login to Pomoduo</h1>
+            <p className="text-gray-500 mt-2">Start your productivity journey today</p>
           </div>
 
           <form className="space-y-6" onSubmit={handleSubmit}>
@@ -143,14 +154,14 @@ export default function Signup() {
               className="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200"
               disabled={isSubmitting}
             >
-              {isSubmitting ? "Creating Account..." : "Sign Up"}
+              {isSubmitting ? "Logging in..." : "Log in"}
             </button>
           </form>
 
           <p className="text-center text-sm text-gray-500 mt-8">
-            Already have an account?{' '}
-            <a href="#" className="text-indigo-600 hover:text-indigo-500 font-medium">
-              Sign in
+            Don't have an account?{' '}
+            <a href="/auth/signup" className="text-indigo-600 hover:text-indigo-500 font-medium">
+              Sign up
             </a>
           </p>
         </div>

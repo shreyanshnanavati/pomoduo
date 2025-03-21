@@ -15,8 +15,27 @@ import {
   Book,
   Music,
   Moon,
+  LogOut,
+  Share2,
+  Copy,
+  Check
 } from "lucide-react";
 import { useSocket } from "@/hooks/useSocket";
+import { motion, AnimatePresence } from "framer-motion";
+import useSound from "use-sound";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { useRouter, useSearchParams } from 'next/navigation';
+import { toast } from "sonner";
 
 const timerPresets = [
   { name: "Focus", duration: 25, icon: Brain },
@@ -46,29 +65,28 @@ const TimerPage = () => {
   const [activePreset, setActivePreset] = useState("Focus");
   const [socket, setSocket] = useSocket();
   const [members, setMembers] = useState<Member[]>([]);
+  const [play] = useSound('/sounds/pop.mp3',{
+    volume: 0.25,
+  });
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const roomId = searchParams.get('room') || 'default_room';
+  const [copied, setCopied] = useState(false);
 
-  // Remove the timer logic and update handler
   useEffect(() => {
-
     if (socket && socket instanceof WebSocket) {
-      // const token = jwt.sign(
-      //   { userId: session.user.id, name: session.user.name },
-      //   process.env.NEXTAUTH_SECRET || ''
-      // );
-      // First, send authentication message with token
-      // socket.send(JSON.stringify({
-      //   type: "authenticate",
-      //   // token: session.user.token // Access the token from the session
-      // }));
-      
-      // Then join room
-      socket.send(JSON.stringify({ type: "join", roomId: "default_room" }));
+      // Join room with room ID from query parameters
+      socket.send(JSON.stringify({ type: "join", roomId }));
 
       // Set up message handler for server updates
       socket.onmessage = (event: MessageEvent) => {
         const data = JSON.parse(event.data);
 
-        if (data.type === "updateTimer" || data.type === "joinedRoom") {
+        if (data.type === "updateTimer") {
+          setTime(data.timer);
+          setIsRunning(data.isRunning);
+          setActivePreset(data.preset);
+        } else if (data.type === "joinedRoom") {
           setTime(data.timer);
           setIsRunning(data.isRunning);
           setActivePreset(data.preset);
@@ -78,7 +96,7 @@ const TimerPage = () => {
         }
       };
     }
-  }, [socket]);
+  }, [socket, roomId]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -91,7 +109,7 @@ const TimerPage = () => {
       socket.send(
         JSON.stringify({
           type: "setPreset",
-          roomId: "default_room",
+          roomId,
           preset: preset.name,
         })
       );
@@ -104,14 +122,14 @@ const TimerPage = () => {
         socket.send(
           JSON.stringify({
             type: "pauseTimer",
-            roomId: "default_room",
+            roomId,
           })
         );
       } else {
         socket.send(
           JSON.stringify({
             type: "startTimer",
-            roomId: "default_room",
+            roomId,
           })
         );
       }
@@ -123,9 +141,34 @@ const TimerPage = () => {
       socket.send(
         JSON.stringify({
           type: "resetTimer",
-          roomId: "default_room",
+          roomId,
         })
       );
+    }
+  };
+
+  const handleLeaveRoom = () => {
+    if (socket && socket instanceof WebSocket) {
+      socket.send(JSON.stringify({
+        type: "leaveRoom",
+        roomId
+      }));
+      socket.close();
+      router.push('/dashboard');
+    }
+  };
+
+  const handleCopyLink = async () => {
+    const origin = window.location.origin;
+    const shareableLink = `${origin}/join?room=${roomId}`;
+    
+    try {
+      await navigator.clipboard.writeText(shareableLink);
+      setCopied(true);
+      toast.success("Link copied to clipboard!");
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      toast.error("Failed to copy link");
     }
   };
 
@@ -135,13 +178,71 @@ const TimerPage = () => {
         {/* Left Side - Timer */}
         <Card className="flex-1 bg-zinc-900/40 shadow-xl backdrop-blur-2xl border border-zinc-800/50 rounded-xl">
           <div className="p-8 space-y-8">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-medium text-zinc-100">
+                Focus Timer
+              </h2>
+              <div className="flex items-center gap-3">
+                <Moon className="w-5 h-5 text-zinc-400" />
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50"
+                      onClick={handleCopyLink}
+                    >
+                      {copied ? (
+                        <Check className="h-4 w-4 mr-2" />
+                      ) : (
+                        <Share2 className="h-4 w-4 mr-2" />
+                      )}
+                      Share
+                    </Button>
+                  </AlertDialogTrigger>
+                </AlertDialog>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50"
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Leave
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent className="bg-zinc-900/95 shadow-xl backdrop-blur-2xl border border-zinc-800/50">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle className="text-zinc-100">
+                        Leave Focus Room
+                      </AlertDialogTitle>
+                      <AlertDialogDescription className="text-zinc-400">
+                        Are you sure you want to leave? Your session progress will not be saved.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel className="bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800">
+                        Stay
+                      </AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleLeaveRoom}
+                        className="bg-violet-600 hover:bg-violet-700 text-white"
+                      >
+                        Leave Room
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            </div>
             <div className="space-y-6">
-              <div className="flex items-center justify-between">
+              {/* <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-medium text-zinc-100">
                   Focus Timer
                 </h2>
                 <Moon className="w-5 h-5 text-zinc-400" />
-              </div>
+              </div> */}
 
               {/* Timer Presets */}
               <div className="flex justify-center gap-3">
@@ -228,42 +329,49 @@ const TimerPage = () => {
               Room Members
             </h2>
             <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
-              {members.map((member) => (
-                <div
-                  key={member.id}
-                  className="flex items-center gap-3 p-3 rounded-lg bg-zinc-900/50 border border-zinc-800/50 hover:bg-zinc-800/50 transition-colors duration-200"
-                >
-                  <div className="relative">
-                    <Avatar className="w-10 h-10 ring-2 ring-zinc-800">
-                      <AvatarImage src={member.image} alt={member.name} />
-                      <AvatarFallback className="bg-zinc-800 text-zinc-100">
-                        {member.name[0]}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div
-                      className={`absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full ring-2 ring-zinc-900 ${
-                        member.status === "Focusing"
-                          ? "bg-violet-500"
-                          : "bg-zinc-500"
-                      }`}
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-sm font-medium text-zinc-100">
-                      {member.name}
+              <AnimatePresence>
+                {members.map((member) => (
+                  <motion.div
+                    key={member.id}
+                    initial={{ opacity: 0, y: 20, scale: 0.8 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.2 } }}
+                    transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                    onAnimationComplete={() => play()}
+                    className="flex items-center gap-3 p-3 rounded-lg bg-zinc-900/50 border border-zinc-800/50 hover:bg-zinc-800/50 transition-colors duration-200"
+                  >
+                    <div className="relative">
+                      <Avatar className="w-10 h-10 ring-2 ring-zinc-800">
+                        <AvatarImage src={member.image} alt={member.name} />
+                        <AvatarFallback className="bg-zinc-800 text-zinc-100">
+                          {member.name[0]}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div
+                        className={`absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full ring-2 ring-zinc-900 ${
+                          member.status === "Focusing"
+                            ? "bg-violet-500"
+                            : "bg-zinc-500"
+                        }`}
+                      />
                     </div>
-                    <div
-                      className={`text-xs ${
-                        member.status === "Focusing"
-                          ? "text-violet-400"
-                          : "text-zinc-400"
-                      }`}
-                    >
-                      {member.status}
+                    <div className="flex-1">
+                      <div className="text-sm font-medium text-zinc-100">
+                        {member.name}
+                      </div>
+                      <div
+                        className={`text-xs ${
+                          member.status === "Focusing"
+                            ? "text-violet-400"
+                            : "text-zinc-400"
+                        }`}
+                      >
+                        {member.status}
+                      </div>
                     </div>
-                  </div>
-                </div>
-              ))}
+                  </motion.div>
+                ))}
+              </AnimatePresence>
             </div>
           </div>
         </Card>
